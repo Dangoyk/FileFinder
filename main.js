@@ -69,8 +69,9 @@ ipcMain.handle('initialize-game', async () => {
       
       if (fileCount > 0 && elapsed > 0) {
         filesPerSecond = fileCount / elapsed;
-        // Estimate we'll find around 2000-5000 files, calculate remaining
-        const estimatedTotal = 3000; // Rough estimate
+        // Dynamic estimate: if we're finding files fast, estimate more files
+        // Base estimate on current rate and typical directory sizes
+        const estimatedTotal = Math.max(5000, Math.min(20000, fileCount * 3)); // Dynamic estimate
         const remaining = Math.max(0, estimatedTotal - fileCount);
         estimatedTimeRemaining = filesPerSecond > 0 ? remaining / filesPerSecond : 0;
       }

@@ -118,7 +118,7 @@ function compareGuesses(newGuessPath, previousGuessPath, targetPath) {
  * @param {Function} progressCallback - Callback function for progress updates (currentPath, fileCount)
  * @returns {Promise<Array>} - Promise that resolves to array of file paths
  */
-async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList = [], maxFiles = 5000, progressCallback = null) {
+async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList = [], maxFiles = 20000, progressCallback = null) {
   if (currentDepth >= maxDepth || fileList.length >= maxFiles) {
     return fileList;
   }
@@ -141,8 +141,8 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
       try {
         if (entry.isFile()) {
           fileList.push(fullPath);
-          // Report progress periodically (every 10 files or at root level)
-          if (progressCallback && (fileList.length % 10 === 0 || currentDepth === 0)) {
+          // Report progress more frequently (every 5 files or at root level)
+          if (progressCallback && (fileList.length % 5 === 0 || currentDepth === 0)) {
             progressCallback(fullPath, fileList.length);
           }
         } else if (entry.isDirectory()) {
@@ -197,8 +197,8 @@ async function scanRandomDirectory(progressCallback = null) {
     progressCallback(`Starting scan of ${dirName}...`, 0);
   }
   
-  // Scan only that directory (with reasonable depth and file limit)
-  const files = await scanDirectory(randomDir, 3, 0, [], 5000, progressCallback);
+  // Scan only that directory (with increased depth and file limit for more files)
+  const files = await scanDirectory(randomDir, 7, 0, [], 20000, progressCallback);
   
   if (files.length === 0) {
     throw new Error(`No files found in ${randomDir}`);

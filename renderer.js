@@ -206,7 +206,7 @@ fileInput.addEventListener('keypress', (e) => {
 let progressState = {
   startTime: null,
   fileCount: 0,
-  estimatedTotal: 3000
+  estimatedTotal: 10000 // Increased estimate
 };
 
 // IPC listeners
@@ -220,7 +220,14 @@ ipcRenderer.on('scanning-started', () => {
 ipcRenderer.on('scanning-progress', (event, data) => {
   progressState.fileCount = data.fileCount;
   
-  // Calculate progress percentage (estimate we'll find around 3000 files)
+  // Dynamic progress calculation - update estimate based on current rate
+  if (data.fileCount > 0 && data.elapsed > 0) {
+    const currentRate = data.fileCount / data.elapsed;
+    // Estimate total based on current rate (assume it will continue for a bit)
+    progressState.estimatedTotal = Math.max(5000, Math.min(20000, data.fileCount * 3));
+  }
+  
+  // Calculate progress percentage (cap at 95% until actually complete)
   const progressPercent = Math.min(95, (data.fileCount / progressState.estimatedTotal) * 100);
   
   // Format time remaining
@@ -242,8 +249,9 @@ ipcRenderer.on('scanning-progress', (event, data) => {
 });
 
 ipcRenderer.on('scanning-complete', (event, data) => {
-  // Loading will be hidden by initializeGame
+  // Update progress to show completion
   updateProgress('Scan complete!', 100, data.fileCount, '');
+  // Note: hideLoading() will be called by initializeGame() after it receives the result
 });
 
 // Update progress display
