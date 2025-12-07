@@ -165,11 +165,11 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
 }
 
 /**
- * Pick a random directory and scan it to get files (much faster than scanning all directories)
+ * Scan all common directories to build a file list
  * @param {Function} progressCallback - Callback function for progress updates (currentPath, fileCount)
- * @returns {Promise<Array>} - Promise that resolves to array of file paths from one directory
+ * @returns {Promise<Array>} - Promise that resolves to array of file paths from all directories
  */
-async function scanRandomDirectory(progressCallback = null) {
+async function scanCommonDirectories(progressCallback = null) {
   const userProfile = process.env.HOME || process.env.USERPROFILE || 'C:\\';
   
   const commonDirs = [
@@ -188,23 +188,43 @@ async function scanRandomDirectory(progressCallback = null) {
     throw new Error('No accessible directories found');
   }
   
-  // Pick ONE random directory
-  const randomDir = existingDirs[Math.floor(Math.random() * existingDirs.length)];
+  let allFiles = [];
+  const totalMaxFiles = 20000; // Total limit across all directories
   
-  // Get directory name for display
-  const dirName = path.basename(randomDir);
-  if (progressCallback) {
-    progressCallback(`Starting scan of ${dirName}...`, 0);
+  for (let i = 0; i < existingDirs.length; i++) {
+    const dir = existingDirs[i];
+    const dirName = path.basename(dir);
+    
+    if (progressCallback) {
+      progressCallback(`Scanning ${dirName}... (${i + 1}/${existingDirs.length})`, allFiles.length);
+    }
+    
+    if (allFiles.length >= totalMaxFiles) {
+      break; // Stop if we've collected enough files total
+    }
+    
+    try {
+      const remainingSlots = totalMaxFiles - allFiles.length;
+      const files = await scanDirectory(dir, 7, 0, [], remainingSlots, progressCallback);
+      allFiles = allFiles.concat(files);
+      
+      if (progressCallback) {
+        progressCallback(`Completed ${dirName} - Found ${files.length} files`, allFiles.length);
+      }
+    } catch (err) {
+      // Skip directories that fail
+      if (progressCallback) {
+        progressCallback(`Skipped ${dirName} (access denied)`, allFiles.length);
+      }
+      continue;
+    }
   }
   
-  // Scan only that directory (with increased depth and file limit for more files)
-  const files = await scanDirectory(randomDir, 7, 0, [], 20000, progressCallback);
-  
-  if (files.length === 0) {
-    throw new Error(`No files found in ${randomDir}`);
+  if (allFiles.length === 0) {
+    throw new Error('No files found in any accessible directories');
   }
   
-  return files;
+  return allFiles;
 }
 
 /**
@@ -226,7 +246,7 @@ module.exports = {
   calculateDistance,
   compareGuesses,
   scanDirectory,
-  scanRandomDirectory,
+  scanCommonDirectories,
   selectTargetFile
 };
 

@@ -89,8 +89,8 @@ ipcMain.handle('initialize-game', async () => {
       lastFileCount = fileCount;
     };
     
-    // Scan one random directory (much faster)
-    fileList = await gameLogic.scanRandomDirectory(progressCallback);
+    // Scan all common directories
+    fileList = await gameLogic.scanCommonDirectories(progressCallback);
     
     if (fileList.length === 0) {
       throw new Error('No files found. Please ensure you have accessible files.');
@@ -216,7 +216,8 @@ ipcMain.handle('reset-game', async () => {
         
         if (fileCount > 0 && elapsed > 0) {
           filesPerSecond = fileCount / elapsed;
-          const estimatedTotal = 3000;
+          // Dynamic estimate: if we're finding files fast, estimate more files
+          const estimatedTotal = Math.max(5000, Math.min(20000, fileCount * 3));
           const remaining = Math.max(0, estimatedTotal - fileCount);
           estimatedTimeRemaining = filesPerSecond > 0 ? remaining / filesPerSecond : 0;
         }
@@ -230,7 +231,7 @@ ipcMain.handle('reset-game', async () => {
         });
       };
       
-      fileList = await gameLogic.scanRandomDirectory(progressCallback);
+      fileList = await gameLogic.scanCommonDirectories(progressCallback);
       if (fileList.length > 0) {
         targetFile = gameLogic.selectTargetFile(fileList);
         mainWindow.webContents.send('scanning-complete', {
