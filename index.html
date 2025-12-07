@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Finder Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 File Finder Game</h1>
+            <p class="subtitle">Find the target file by guessing! Use the feedback to get closer.</p>
+        </header>
+
+        <div class="game-info">
+            <div class="info-item">
+                <span class="label">Guesses Remaining:</span>
+                <span id="guesses-remaining" class="value">10</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Status:</span>
+                <span id="game-status" class="value">Playing</span>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div id="feedback-message" class="feedback-message"></div>
+            
+            <div class="input-section">
+                <label for="file-input">Enter file path or browse:</label>
+                <div class="input-group">
+                    <input type="text" id="file-input" placeholder="C:\Users\...\filename.txt" />
+                    <button id="browse-btn" class="btn btn-secondary">Browse</button>
+                </div>
+                <button id="guess-btn" class="btn btn-primary">Guess</button>
+            </div>
+
+            <div class="guess-history">
+                <h3>Your Guesses:</h3>
+                <div id="guess-list" class="guess-list"></div>
+            </div>
+        </div>
+
+        <div id="win-message" class="win-message hidden">
+            <h2>🎉 Congratulations! 🎉</h2>
+            <p>You found the target file!</p>
+            <button id="restart-btn" class="btn btn-primary">Play Again</button>
+        </div>
+
+        <div id="lose-message" class="lose-message hidden">
+            <h2>😔 Game Over</h2>
+            <p>You ran out of guesses!</p>
+            <p id="target-reveal" class="target-reveal"></p>
+            <button id="restart-btn-lose" class="btn btn-primary">Play Again</button>
+        </div>
+
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="loading-spinner"></div>
+            <p>Scanning files... This may take a moment.</p>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
+
