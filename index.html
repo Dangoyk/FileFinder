@@ -56,8 +56,14 @@
         </div>
 
         <div id="loading-overlay" class="loading-overlay hidden">
-            <div class="loading-spinner"></div>
-            <p>Scanning files... This may take a moment.</p>
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p id="loading-status">Scanning files... This may take a moment.</p>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <p id="loading-time" class="loading-time"></p>
+            </div>
         </div>
     </div>
 

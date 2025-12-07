@@ -54,8 +54,42 @@ ipcMain.handle('initialize-game', async () => {
     // Show loading in renderer
     mainWindow.webContents.send('scanning-started');
     
+    const startTime = Date.now();
+    let lastUpdateTime = startTime;
+    let lastFileCount = 0;
+    
+    // Progress callback to send updates to renderer
+    const progressCallback = (currentPath, fileCount) => {
+      const now = Date.now();
+      const elapsed = (now - startTime) / 1000; // seconds
+      
+      // Calculate files per second and estimate time remaining
+      let filesPerSecond = 0;
+      let estimatedTimeRemaining = 0;
+      
+      if (fileCount > 0 && elapsed > 0) {
+        filesPerSecond = fileCount / elapsed;
+        // Estimate we'll find around 2000-5000 files, calculate remaining
+        const estimatedTotal = 3000; // Rough estimate
+        const remaining = Math.max(0, estimatedTotal - fileCount);
+        estimatedTimeRemaining = filesPerSecond > 0 ? remaining / filesPerSecond : 0;
+      }
+      
+      // Send progress update
+      mainWindow.webContents.send('scanning-progress', {
+        currentPath: currentPath,
+        fileCount: fileCount,
+        filesPerSecond: filesPerSecond,
+        estimatedTimeRemaining: estimatedTimeRemaining,
+        elapsed: elapsed
+      });
+      
+      lastUpdateTime = now;
+      lastFileCount = fileCount;
+    };
+    
     // Scan one random directory (much faster)
-    fileList = await gameLogic.scanRandomDirectory();
+    fileList = await gameLogic.scanRandomDirectory(progressCallback);
     
     if (fileList.length === 0) {
       throw new Error('No files found. Please ensure you have accessible files.');
@@ -170,13 +204,44 @@ ipcMain.handle('reset-game', async () => {
       };
     } else {
       // Re-scan if file list is empty
-      fileList = await gameLogic.scanRandomDirectory();
+      mainWindow.webContents.send('scanning-started');
+      
+      const startTime = Date.now();
+      const progressCallback = (currentPath, fileCount) => {
+        const now = Date.now();
+        const elapsed = (now - startTime) / 1000;
+        let filesPerSecond = 0;
+        let estimatedTimeRemaining = 0;
+        
+        if (fileCount > 0 && elapsed > 0) {
+          filesPerSecond = fileCount / elapsed;
+          const estimatedTotal = 3000;
+          const remaining = Math.max(0, estimatedTotal - fileCount);
+          estimatedTimeRemaining = filesPerSecond > 0 ? remaining / filesPerSecond : 0;
+        }
+        
+        mainWindow.webContents.send('scanning-progress', {
+          currentPath: currentPath,
+          fileCount: fileCount,
+          filesPerSecond: filesPerSecond,
+          estimatedTimeRemaining: estimatedTimeRemaining,
+          elapsed: elapsed
+        });
+      };
+      
+      fileList = await gameLogic.scanRandomDirectory(progressCallback);
       if (fileList.length > 0) {
         targetFile = gameLogic.selectTargetFile(fileList);
+        mainWindow.webContents.send('scanning-complete', {
+          fileCount: fileList.length
+        });
         return {
           success: true
         };
       } else {
+        mainWindow.webContents.send('scanning-complete', {
+          fileCount: 0
+        });
         return {
           success: false,
           error: 'No files available'
@@ -184,6 +249,9 @@ ipcMain.handle('reset-game', async () => {
       }
     }
   } catch (error) {
+    mainWindow.webContents.send('scanning-complete', {
+      fileCount: 0
+    });
     return {
       success: false,
       error: error.message

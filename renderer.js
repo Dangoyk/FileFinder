@@ -23,6 +23,9 @@ const restartBtn = document.getElementById('restart-btn');
 const restartBtnLose = document.getElementById('restart-btn-lose');
 const loadingOverlay = document.getElementById('loading-overlay');
 const targetReveal = document.getElementById('target-reveal');
+const loadingStatus = document.getElementById('loading-status');
+const progressBar = document.getElementById('progress-bar');
+const loadingTime = document.getElementById('loading-time');
 
 // Initialize game
 async function initializeGame() {
@@ -199,14 +202,71 @@ fileInput.addEventListener('keypress', (e) => {
   }
 });
 
+// Progress tracking
+let progressState = {
+  startTime: null,
+  fileCount: 0,
+  estimatedTotal: 3000
+};
+
 // IPC listeners
 ipcRenderer.on('scanning-started', () => {
+  progressState.startTime = Date.now();
+  progressState.fileCount = 0;
   showLoading();
+  updateProgress('Initializing scan...', 0, 0, 0);
+});
+
+ipcRenderer.on('scanning-progress', (event, data) => {
+  progressState.fileCount = data.fileCount;
+  
+  // Calculate progress percentage (estimate we'll find around 3000 files)
+  const progressPercent = Math.min(95, (data.fileCount / progressState.estimatedTotal) * 100);
+  
+  // Format time remaining
+  let timeText = '';
+  if (data.estimatedTimeRemaining > 0) {
+    if (data.estimatedTimeRemaining < 1) {
+      timeText = 'Less than a second remaining';
+    } else if (data.estimatedTimeRemaining < 60) {
+      timeText = `~${Math.ceil(data.estimatedTimeRemaining)} seconds remaining`;
+    } else {
+      const minutes = Math.floor(data.estimatedTimeRemaining / 60);
+      const seconds = Math.ceil(data.estimatedTimeRemaining % 60);
+      timeText = `~${minutes}m ${seconds}s remaining`;
+    }
+  }
+  
+  // Update UI
+  updateProgress(data.currentPath, progressPercent, data.fileCount, timeText);
 });
 
 ipcRenderer.on('scanning-complete', (event, data) => {
   // Loading will be hidden by initializeGame
+  updateProgress('Scan complete!', 100, data.fileCount, '');
 });
+
+// Update progress display
+function updateProgress(statusText, progressPercent, fileCount, timeText) {
+  if (loadingStatus) {
+    loadingStatus.textContent = statusText;
+  }
+  
+  if (progressBar) {
+    progressBar.style.width = `${progressPercent}%`;
+  }
+  
+  if (loadingTime) {
+    let timeDisplay = '';
+    if (fileCount > 0) {
+      timeDisplay = `Found ${fileCount} files`;
+      if (timeText) {
+        timeDisplay += ` • ${timeText}`;
+      }
+    }
+    loadingTime.textContent = timeDisplay;
+  }
+}
 
 // Initialize game on load
 window.addEventListener('DOMContentLoaded', () => {

@@ -114,11 +114,18 @@ function compareGuesses(newGuessPath, previousGuessPath, targetPath) {
  * @param {number} maxDepth - Maximum depth to scan (default: 10)
  * @param {number} currentDepth - Current depth (default: 0)
  * @param {Array} fileList - Array to store file paths (default: [])
+ * @param {number} maxFiles - Maximum files to collect (default: 5000)
+ * @param {Function} progressCallback - Callback function for progress updates (currentPath, fileCount)
  * @returns {Promise<Array>} - Promise that resolves to array of file paths
  */
-async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList = [], maxFiles = 5000) {
+async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList = [], maxFiles = 5000, progressCallback = null) {
   if (currentDepth >= maxDepth || fileList.length >= maxFiles) {
     return fileList;
+  }
+  
+  // Report current directory being scanned
+  if (progressCallback && currentDepth === 0) {
+    progressCallback(dirPath, fileList.length);
   }
   
   try {
@@ -134,11 +141,15 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
       try {
         if (entry.isFile()) {
           fileList.push(fullPath);
+          // Report progress periodically (every 10 files or at root level)
+          if (progressCallback && (fileList.length % 10 === 0 || currentDepth === 0)) {
+            progressCallback(fullPath, fileList.length);
+          }
         } else if (entry.isDirectory()) {
           // Skip certain system directories that might cause issues
           const skipDirs = ['$Recycle.Bin', 'System Volume Information', 'Windows', 'node_modules', '.git'];
           if (!skipDirs.includes(entry.name)) {
-            await scanDirectory(fullPath, maxDepth, currentDepth + 1, fileList, maxFiles);
+            await scanDirectory(fullPath, maxDepth, currentDepth + 1, fileList, maxFiles, progressCallback);
           }
         }
       } catch (err) {
@@ -155,9 +166,10 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
 
 /**
  * Pick a random directory and scan it to get files (much faster than scanning all directories)
+ * @param {Function} progressCallback - Callback function for progress updates (currentPath, fileCount)
  * @returns {Promise<Array>} - Promise that resolves to array of file paths from one directory
  */
-async function scanRandomDirectory() {
+async function scanRandomDirectory(progressCallback = null) {
   const userProfile = process.env.HOME || process.env.USERPROFILE || 'C:\\';
   
   const commonDirs = [
@@ -179,8 +191,14 @@ async function scanRandomDirectory() {
   // Pick ONE random directory
   const randomDir = existingDirs[Math.floor(Math.random() * existingDirs.length)];
   
+  // Get directory name for display
+  const dirName = path.basename(randomDir);
+  if (progressCallback) {
+    progressCallback(`Starting scan of ${dirName}...`, 0);
+  }
+  
   // Scan only that directory (with reasonable depth and file limit)
-  const files = await scanDirectory(randomDir, 3, 0, [], 5000);
+  const files = await scanDirectory(randomDir, 3, 0, [], 5000, progressCallback);
   
   if (files.length === 0) {
     throw new Error(`No files found in ${randomDir}`);
