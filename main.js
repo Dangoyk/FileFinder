@@ -2,6 +2,10 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const gameLogic = require('./gameLogic');
 
+// Suppress GPU errors and warnings (these are usually harmless)
+app.commandLine.appendSwitch('ignore-gpu-blacklist');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 let mainWindow;
 let fileList = [];
 let targetFile = null;
@@ -50,8 +54,8 @@ ipcMain.handle('initialize-game', async () => {
     // Show loading in renderer
     mainWindow.webContents.send('scanning-started');
     
-    // Scan common directories
-    fileList = await gameLogic.scanCommonDirectories();
+    // Scan one random directory (much faster)
+    fileList = await gameLogic.scanRandomDirectory();
     
     if (fileList.length === 0) {
       throw new Error('No files found. Please ensure you have accessible files.');
@@ -166,7 +170,7 @@ ipcMain.handle('reset-game', async () => {
       };
     } else {
       // Re-scan if file list is empty
-      fileList = await gameLogic.scanCommonDirectories();
+      fileList = await gameLogic.scanRandomDirectory();
       if (fileList.length > 0) {
         targetFile = gameLogic.selectTargetFile(fileList);
         return {

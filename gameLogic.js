@@ -116,8 +116,8 @@ function compareGuesses(newGuessPath, previousGuessPath, targetPath) {
  * @param {Array} fileList - Array to store file paths (default: [])
  * @returns {Promise<Array>} - Promise that resolves to array of file paths
  */
-async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList = []) {
-  if (currentDepth >= maxDepth) {
+async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList = [], maxFiles = 5000) {
+  if (currentDepth >= maxDepth || fileList.length >= maxFiles) {
     return fileList;
   }
   
@@ -125,6 +125,10 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
     
     for (const entry of entries) {
+      if (fileList.length >= maxFiles) {
+        break; // Stop if we've collected enough files
+      }
+      
       const fullPath = path.join(dirPath, entry.name);
       
       try {
@@ -132,9 +136,9 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
           fileList.push(fullPath);
         } else if (entry.isDirectory()) {
           // Skip certain system directories that might cause issues
-          const skipDirs = ['$Recycle.Bin', 'System Volume Information', 'Windows'];
+          const skipDirs = ['$Recycle.Bin', 'System Volume Information', 'Windows', 'node_modules', '.git'];
           if (!skipDirs.includes(entry.name)) {
-            await scanDirectory(fullPath, maxDepth, currentDepth + 1, fileList);
+            await scanDirectory(fullPath, maxDepth, currentDepth + 1, fileList, maxFiles);
           }
         }
       } catch (err) {
@@ -150,42 +154,39 @@ async function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0, fileList 
 }
 
 /**
- * Scan common directories to build a file list
- * @returns {Promise<Array>} - Promise that resolves to array of file paths
+ * Pick a random directory and scan it to get files (much faster than scanning all directories)
+ * @returns {Promise<Array>} - Promise that resolves to array of file paths from one directory
  */
-async function scanCommonDirectories() {
+async function scanRandomDirectory() {
+  const userProfile = process.env.HOME || process.env.USERPROFILE || 'C:\\';
+  
   const commonDirs = [
-    path.join(process.env.HOME || process.env.USERPROFILE || 'C:\\', 'Documents'),
-    path.join(process.env.HOME || process.env.USERPROFILE || 'C:\\', 'Desktop'),
-    path.join(process.env.HOME || process.env.USERPROFILE || 'C:\\', 'Downloads'),
-    path.join(process.env.HOME || process.env.USERPROFILE || 'C:\\', 'Pictures'),
-    path.join(process.env.HOME || process.env.USERPROFILE || 'C:\\', 'Music'),
-    path.join(process.env.HOME || process.env.USERPROFILE || 'C:\\', 'Videos'),
+    path.join(userProfile, 'Documents'),
+    path.join(userProfile, 'Desktop'),
+    path.join(userProfile, 'Downloads'),
+    path.join(userProfile, 'Pictures'),
+    path.join(userProfile, 'Music'),
+    path.join(userProfile, 'Videos'),
   ];
   
-  // On Windows, also try Program Files (with limited depth)
-  if (process.platform === 'win32') {
-    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-    if (fs.existsSync(programFiles)) {
-      commonDirs.push(programFiles);
-    }
+  // Filter to only existing directories
+  const existingDirs = commonDirs.filter(dir => fs.existsSync(dir));
+  
+  if (existingDirs.length === 0) {
+    throw new Error('No accessible directories found');
   }
   
-  let allFiles = [];
+  // Pick ONE random directory
+  const randomDir = existingDirs[Math.floor(Math.random() * existingDirs.length)];
   
-  for (const dir of commonDirs) {
-    if (fs.existsSync(dir)) {
-      try {
-        const files = await scanDirectory(dir, 5); // Limit depth to 5 for performance
-        allFiles = allFiles.concat(files);
-      } catch (err) {
-        // Skip directories that fail
-        continue;
-      }
-    }
+  // Scan only that directory (with reasonable depth and file limit)
+  const files = await scanDirectory(randomDir, 3, 0, [], 5000);
+  
+  if (files.length === 0) {
+    throw new Error(`No files found in ${randomDir}`);
   }
   
-  return allFiles;
+  return files;
 }
 
 /**
@@ -207,7 +208,7 @@ module.exports = {
   calculateDistance,
   compareGuesses,
   scanDirectory,
-  scanCommonDirectories,
+  scanRandomDirectory,
   selectTargetFile
 };
 
